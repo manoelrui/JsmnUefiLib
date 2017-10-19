@@ -1,0 +1,18 @@
+[Defines]
+  LIBRARY_CLASS 	= JsmnUefiLib
+  MODULE_TYPE 		= BASE
+  INF_VERSION 		= 0x00010006
+  BASE_NAME 		= JsmnUefiLib
+  VERSION_STRING 	= 0.1
+  FILE_GUID = 722d8af4-b56a-4d7b-831f-d2681865d7e6
+
+[Sources]
+  JsmnUefiLib.c
+
+[Packages]
+  BeginnerPkg/BeginnerPkg.dec
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiLib
+  

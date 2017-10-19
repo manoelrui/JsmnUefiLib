@@ -1,0 +1,19 @@
+[Defines]
+  MODULE_TYPE 		= UEFI_APPLICATION
+  INF_VERSION 		= 0x00010006
+  BASE_NAME 		= JsmnUefiSimpleTest
+  VERSION_STRING 	= 0.1
+  FILE_GUID 		= b2b955c7-71a1-4aa7-8369-c3c1c226db1e
+  ENTRY_POINT 		= UefiMain
+
+[Sources]
+  JsmnUefiSimpleTest.c
+
+[Packages]
+  #BeginnerPkg/BeginnerPkg.dec
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiLib
+  UefiApplicationEntryPoint
+  JsmnUefiLib

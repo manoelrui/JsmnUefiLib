@@ -2,42 +2,63 @@
 #include <Library/JsmnUefiLib.h>
 
 
-/**
- * Allocates a fresh unused token from the token pull.
- */
-static JSMNTOK_T *Jsmn_alloc_token(JSMN_PARSER *Parser,
-		JSMNTOK_T *Tokens, UINTN NumTokens) {
-	JSMNTOK_T *tok;
+//
+// Allocates a fresh unused Token from the Token pull.
+//
+STATIC
+JSMNTOK_T*
+JsmnAllocToken (
+	IN JSMN_PARSER *Parser,
+	IN JSMNTOK_T *Tokens,
+	IN UINTN NumTokens
+	)
+{
+	JSMNTOK_T *Tok;
 	if (Parser->Toknext >= NumTokens) {
 		return NULL;
 	}
-	tok = &Tokens[Parser->Toknext++];
-	tok->Start = tok->End = -1;
-	tok->Size = 0;
+	Tok = &Tokens[Parser->Toknext++];
+	Tok->Start = Tok->End = -1;
+	Tok->Size = 0;
 #ifdef JSMN_PARENT_LINKS
-	tok->Parent = -1;
+	Tok->Parent = -1;
 #endif
-	return tok;
+	return Tok;
 }
 
-/**
- * Fills token Type and boundaries.
- */
-static void Jsmn_fill_token(JSMNTOK_T *token, JSMNTYPE_T Type,
-                            int Start, int End) {
-	token->Type = Type;
-	token->Start = Start;
-	token->End = End;
-	token->Size = 0;
+//
+// Fills Token Type and boundaries.
+//
+STATIC
+VOID
+JsmnFillToken (
+	OUT JSMNTOK_T *Token,
+	IN JSMNTYPE_T Type,
+    IN INT32 Start,
+	IN INT32 End
+	)
+{
+	Token->Type = Type;
+	Token->Start = Start;
+	Token->End = End;
+	Token->Size = 0;
 }
 
-/**
- * Fills next available token with JSON primitive.
- */
-static int Jsmn_parse_primitive(JSMN_PARSER *Parser, const CHAR16 *Js,
-		UINTN Len, JSMNTOK_T *Tokens, UINTN NumTokens) {
-	JSMNTOK_T *token;
-	int Start;
+//
+// Fills next available Token with JSON primitive.
+//
+STATIC
+UINT32
+JsmnParsePrimitive (
+	IN JSMN_PARSER *Parser,
+	IN CONST CHAR16 *Js,
+	IN UINTN Len,
+	OUT JSMNTOK_T *Tokens,
+	IN UINTN NumTokens
+	)
+{
+	JSMNTOK_T *Token;
+	UINT32 Start;
 
 	Start = Parser->Pos;
 
@@ -67,54 +88,62 @@ found:
 		Parser->Pos--;
 		return 0;
 	}
-	token = Jsmn_alloc_token(Parser, Tokens, NumTokens);
-	if (token == NULL) {
+	Token = JsmnAllocToken(Parser, Tokens, NumTokens);
+	if (Token == NULL) {
 		Parser->Pos = Start;
 		return JSMN_ERROR_NOMEM;
 	}
-	Jsmn_fill_token(token, JSMN_PRIMITIVE, Start, Parser->Pos);
+	JsmnFillToken(Token, JSMN_PRIMITIVE, Start, Parser->Pos);
 #ifdef JSMN_PARENT_LINKS
-	token->Parent = Parser->Toksuper;
+	Token->Parent = Parser->Toksuper;
 #endif
 	Parser->Pos--;
 	return 0;
 }
 
-/**
- * Fills next token with JSON string.
- */
-static int Jsmn_parse_string(JSMN_PARSER *Parser, const CHAR16 *Js,
-		UINTN Len, JSMNTOK_T *Tokens, UINTN NumTokens) {
-	JSMNTOK_T *token;
+//
+// Fills next Token with JSON string.
+//
+STATIC
+UINT32
+JsmnParseString (
+	IN JSMN_PARSER *Parser,
+	IN CONST CHAR16 *Js,
+	IN UINTN Len,
+	OUT JSMNTOK_T *Tokens,
+	IN UINTN NumTokens
+	)
+{
+	JSMNTOK_T *Token;
 
-	int Start = Parser->Pos;
+	UINT32 Start = Parser->Pos;
 
 	Parser->Pos++;
 
 	/* Skip Starting quote */
 	for (; Parser->Pos < Len && Js[Parser->Pos] != '\0'; Parser->Pos++) {
-		char c = Js[Parser->Pos];
+		CHAR16 c = Js[Parser->Pos];
 
 		/* Quote: End of string */
 		if (c == '\"') {
 			if (Tokens == NULL) {
 				return 0;
 			}
-			token = Jsmn_alloc_token(Parser, Tokens, NumTokens);
-			if (token == NULL) {
+			Token = JsmnAllocToken(Parser, Tokens, NumTokens);
+			if (Token == NULL) {
 				Parser->Pos = Start;
 				return JSMN_ERROR_NOMEM;
 			}
-			Jsmn_fill_token(token, JSMN_STRING, Start+1, Parser->Pos);
+			JsmnFillToken(Token, JSMN_STRING, Start+1, Parser->Pos);
 #ifdef JSMN_PARENT_LINKS
-			token->Parent = Parser->Toksuper;
+			Token->Parent = Parser->Toksuper;
 #endif
 			return 0;
 		}
 
 		/* Backslash: Quoted symbol expected */
 		if (c == '\\' && Parser->Pos + 1 < Len) {
-			int i;
+			UINT32 i;
 			Parser->Pos++;
 			switch (Js[Parser->Pos]) {
 				/* Allowed escaped symbols */
@@ -172,33 +201,33 @@ JsmnParser (
 	IN UINT32 NumTokens
 	)
 {
-	int r;
-	int i;
-	JSMNTOK_T *token;
-	int count = Parser->Toknext;
+	INT32 r;
+	INT32 i;
+	JSMNTOK_T *Token;
+	INT32 Count = Parser->Toknext;
 
 	for (; Parser->Pos < Len && Js[Parser->Pos] != '\0'; Parser->Pos++) {
-		char c;
+		CHAR16 c;
 		JSMNTYPE_T Type;
 
 		c = Js[Parser->Pos];
 		switch (c) {
 			case '{': case '[':
-				count++;
+				Count++;
 				if (Tokens == NULL) {
 					break;
 				}
-				token = Jsmn_alloc_token(Parser, Tokens, NumTokens);
-				if (token == NULL)
+				Token = JsmnAllocToken(Parser, Tokens, NumTokens);
+				if (Token == NULL)
 					return JSMN_ERROR_NOMEM;
 				if (Parser->Toksuper != -1) {
 					Tokens[Parser->Toksuper].Size++;
 #ifdef JSMN_PARENT_LINKS
-					token->Parent = Parser->Toksuper;
+					Token->Parent = Parser->Toksuper;
 #endif
 				}
-				token->Type = (c == '{' ? JSMN_OBJECT : JSMN_ARRAY);
-				token->Start = Parser->Pos;
+				Token->Type = (c == '{' ? JSMN_OBJECT : JSMN_ARRAY);
+				Token->Start = Parser->Pos;
 				Parser->Toksuper = Parser->Toknext - 1;
 				break;
 			case '}': case ']':
@@ -209,41 +238,41 @@ JsmnParser (
 				if (Parser->Toknext < 1) {
 					return JSMN_ERROR_INVAL;
 				}
-				token = &Tokens[Parser->Toknext - 1];
+				Token = &Tokens[Parser->Toknext - 1];
 				for (;;) {
-					if (token->Start != -1 && token->End == -1) {
-						if (token->Type != Type) {
+					if (Token->Start != -1 && Token->End == -1) {
+						if (Token->Type != Type) {
 							return JSMN_ERROR_INVAL;
 						}
-						token->End = Parser->Pos + 1;
-						Parser->Toksuper = token->Parent;
+						Token->End = Parser->Pos + 1;
+						Parser->Toksuper = Token->Parent;
 						break;
 					}
-					if (token->Parent == -1) {
-						if(token->Type != Type || Parser->Toksuper == -1) {
+					if (Token->Parent == -1) {
+						if(Token->Type != Type || Parser->Toksuper == -1) {
 							return JSMN_ERROR_INVAL;
 						}
 						break;
 					}
-					token = &Tokens[token->Parent];
+					Token = &Tokens[Token->Parent];
 				}
 #else
 				for (i = Parser->Toknext - 1; i >= 0; i--) {
-					token = &Tokens[i];
-					if (token->Start != -1 && token->End == -1) {
-						if (token->Type != Type) {
+					Token = &Tokens[i];
+					if (Token->Start != -1 && Token->End == -1) {
+						if (Token->Type != Type) {
 							return JSMN_ERROR_INVAL;
 						}
 						Parser->Toksuper = -1;
-						token->End = Parser->Pos + 1;
+						Token->End = Parser->Pos + 1;
 						break;
 					}
 				}
 				/* Error if unmatched closing bracket */
 				if (i == -1) return JSMN_ERROR_INVAL;
 				for (; i >= 0; i--) {
-					token = &Tokens[i];
-					if (token->Start != -1 && token->End == -1) {
+					Token = &Tokens[i];
+					if (Token->Start != -1 && Token->End == -1) {
 						Parser->Toksuper = i;
 						break;
 					}
@@ -251,9 +280,9 @@ JsmnParser (
 #endif
 				break;
 			case '\"':
-				r = Jsmn_parse_string(Parser, Js, Len, Tokens, NumTokens);
+				r = JsmnParseString(Parser, Js, Len, Tokens, NumTokens);
 				if (r < 0) return r;
-				count++;
+				Count++;
 				if (Parser->Toksuper != -1 && Tokens != NULL)
 					Tokens[Parser->Toksuper].Size++;
 				break;
@@ -297,9 +326,9 @@ JsmnParser (
 			/* In non-strict mode every unquoted value is a primitive */
 			default:
 #endif
-				r = Jsmn_parse_primitive(Parser, Js, Len, Tokens, NumTokens);
+				r = JsmnParsePrimitive(Parser, Js, Len, Tokens, NumTokens);
 				if (r < 0) return r;
-				count++;
+				Count++;
 				if (Parser->Toksuper != -1 && Tokens != NULL)
 					Tokens[Parser->Toksuper].Size++;
 				break;
@@ -321,7 +350,7 @@ JsmnParser (
 		}
 	}
 
-	return count;
+	return Count;
 }
 
 /**
@@ -340,4 +369,3 @@ JsmnInit (
 	Parser->Toknext = 0;
 	Parser->Toksuper = -1;
 }
-
